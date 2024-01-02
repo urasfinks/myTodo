@@ -20,9 +20,10 @@ class PushNotification {
     plugin = await PushNotification.initPlugin();
 
     Push.instance.onNewToken.listen((token) => onMessage({"token": token}, PushType.onToken));
-    Push.instance.onNotificationTap.listen((data) => onMessage(parseNotificationTap(data), PushType.onNotificationTap));
+    Push.instance.onNotificationTap.listen((data) => parseNotificationTap(data));
     Push.instance.onMessage.listen((message) => onMessage(parseRemoteMessage(message), PushType.onMessage));
-    Push.instance.onBackgroundMessage.listen((message) => onMessage(parseRemoteMessage(message), PushType.onBackgroundMessage));
+    Push.instance.onBackgroundMessage
+        .listen((message) => onMessage(parseRemoteMessage(message), PushType.onBackgroundMessage));
 
     if (!Platform.isAndroid) {
       return;
@@ -94,23 +95,26 @@ class PushNotification {
     return flutterLocalNotificationsPlugin;
   }
 
-  static Map<String, Object> parseNotificationTap(Map<String?, Object?> data) {
-    Map<String, Object> result = {"title": "", "message": ""};
+  static void parseNotificationTap(Map<String?, Object?> data) {
+    Map<String, Object> result = {"information": "", "data": ""};
     if (Platform.isIOS) {
-      result["title"] = selector(data, "aps.alert", "");
-      result["message"] = selector(data, "message", "");
+      result["information"] = selector(data, "aps.alert", "");
+      if (result["information"] == "") {
+        result["information"] = selector(data, "title", "");
+      }
+      result["data"] = selector(data, "message", "");
     }
-    return result;
+    onMessage(result, PushType.onNotificationTap);
   }
 
   static Map<String, Object> parseRemoteMessage(RemoteMessage message) {
-    Map<String, Object> result = {"title": "", "message": ""};
+    Map<String, Object> result = {"title": "", "data": ""};
     if (message.notification != null) {
       displayForegroundNotification(message.notification!);
     }
     if (Platform.isIOS) {
-      result["title"] = selector(message.data, "aps.alert", "");
-      result["message"] = selector(message.data, "message", "");
+      result["information"] = selector(message.data, "aps.alert", "");
+      result["data"] = selector(message.data, "message", "");
     } else if (Platform.isAndroid) {}
     return result;
   }
