@@ -22,10 +22,14 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'com.google.gms.google-services'
+
 android {
     namespace "ru.jamsys.my_todo"
     compileSdkVersion flutter.compileSdkVersion
-    ndkVersion flutter.ndkVersiq:qon
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
