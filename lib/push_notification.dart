@@ -13,17 +13,10 @@ Future<void> _firebaseMessagingBackgroundHandler(fcm.RemoteMessage message) asyn
   fcm.AndroidNotification? android = message.notification?.android;
   if (notification != null && android != null && notification.title != null && notification.body != null) {
     PushNotification().openPush(notification.title!, notification.body!);
-    Map<String, Object> result = {
-      "information": notification.body!,
-      "data": message.data["message"] ?? "",
-    };
-    if (result["data"] != "") {
-      PushNotification().onMessage(result, PushType.onCloseApplication);
-    }
   }
 }
 
-enum PushType { onToken, onNotificationTap, onMessage, onBackgroundMessage, onCloseApplication }
+enum PushType { onToken, onNotificationTap, onMessage, onBackgroundMessage, onMessageOpenedApp }
 
 class PushNotification {
   static final PushNotification _singleton = PushNotification._internal();
@@ -59,11 +52,23 @@ class PushNotification {
     });
     if (Platform.isAndroid) {
       //Регистрация закрытого обработчика
-      //fcm.FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      fcm.FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       FlutterLocalNotificationsPlugin()
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()!
           .createNotificationChannel(channel);
     }
+    Push.instance.notificationTapWhichLaunchedAppFromTerminated.then((value) {
+      Map<String, Object> result = {
+        "information": "",
+        "data": "",
+      };
+      if (value != null && value.containsKey("message")) {
+        result["data"] = value["message"]!;
+      }
+      if (result["data"] != "") {
+        PushNotification().onMessage(result, PushType.onMessageOpenedApp);
+      }
+    });
     Push.instance.onNewToken.listen((token) => onMessage({"token": token}, PushType.onToken));
     Push.instance.onNotificationTap.listen((data) => parseNotificationTap(data));
     Push.instance.onMessage.listen((message) => parseRemoteMessage(message, PushType.onMessage));
@@ -71,6 +76,7 @@ class PushNotification {
   }
 
   void parseNotificationTap(Map<String?, Object?> data) {
+    print("parseNotificationTap: $data");
     Map<String, Object> result = {"information": "", "data": ""};
     if (Platform.isIOS) {
       result["information"] = selector(data, "aps.alert", "");
@@ -78,6 +84,10 @@ class PushNotification {
         result["information"] = selector(data, "title", "");
       }
       result["data"] = selector(data, "message", "");
+    } else if (Platform.isAndroid) {
+      if (data.containsKey("message")) {
+        result["data"] = data["message"]!;
+      }
     }
     if (result["data"] != "") {
       onMessage(result, PushType.onNotificationTap);
@@ -85,20 +95,20 @@ class PushNotification {
   }
 
   void parseRemoteMessage(push.RemoteMessage message, PushType pushType) {
-    Map<String, Object> result = {"information": "", "data": ""};
+    //Map<String, Object> result = {"information": "", "data": ""};
     if (message.notification != null && message.notification!.title != null && message.notification!.body != null) {
       openPush(message.notification!.title!, message.notification!.body!);
     }
-    if (Platform.isIOS) {
-      result["information"] = selector(message.data, "aps.alert", "");
-      result["data"] = selector(message.data, "message", "");
-    } else if (Platform.isAndroid) {
-      result["information"] = message.notification?.body ?? "";
-      result["data"] = message.data?["message"] ?? "";
-    }
-    if (result["data"] != "") {
-      onMessage(result, pushType);
-    }
+    // if (Platform.isIOS) {
+    //   result["information"] = selector(message.data, "aps.alert", "");
+    //   result["data"] = selector(message.data, "message", "");
+    // } else if (Platform.isAndroid) {
+    //   result["information"] = message.notification?.body ?? "";
+    //   result["data"] = message.data?["message"] ?? "";
+    // }
+    // if (result["data"] != "") {
+    //   onMessage(result, pushType);
+    // }
   }
 
   void getToken() {
