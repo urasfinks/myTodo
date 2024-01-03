@@ -12,7 +12,7 @@ Future<void> _firebaseMessagingBackgroundHandler(fcm.RemoteMessage message) asyn
   fcm.RemoteNotification? notification = message.notification;
   fcm.AndroidNotification? android = message.notification?.android;
   if (notification != null && android != null && notification.title != null && notification.body != null) {
-    PushNotification().openPush(notification.title!, notification.body!);
+    PushNotification().openPush(notification.title!, notification.body!, message.data);
   }
 }
 
@@ -41,9 +41,9 @@ class PushNotification {
 
   List<String> list = [];
 
-  void onMessage(Map<String?, Object?>? data, PushType type) {
-    list.add("type: ${type.name}; data: $data");
-    print("onMessage($type) $data");
+  void onMessage(String? payload, PushType type) {
+    list.add("type: ${type.name}; payload: $payload");
+    print("onMessage($type) $payload");
   }
 
   init() {
@@ -58,66 +58,47 @@ class PushNotification {
           .createNotificationChannel(channel);
     }
     Push.instance.notificationTapWhichLaunchedAppFromTerminated.then((value) {
-      Map<String, Object> result = {
-        "information": "",
-        "data": "",
-      };
-      if (value != null && value.containsKey("message")) {
-        result["data"] = value["message"]!;
-      }
-      if (result["data"] != "") {
-        PushNotification().onMessage(result, PushType.onMessageOpenedApp);
+      if (value != null && value.containsKey("message") && value["message"] != "") {
+        PushNotification().onMessage(value["message"].toString(), PushType.onMessageOpenedApp);
       }
     });
-    Push.instance.onNewToken.listen((token) => onMessage({"token": token}, PushType.onToken));
+    Push.instance.onNewToken.listen((token) => onMessage(token, PushType.onToken));
     Push.instance.onNotificationTap.listen((data) => parseNotificationTap(data));
     Push.instance.onMessage.listen((message) => parseRemoteMessage(message, PushType.onMessage));
     Push.instance.onBackgroundMessage.listen((message) => parseRemoteMessage(message, PushType.onBackgroundMessage));
   }
 
   void parseNotificationTap(Map<String?, Object?> data) {
-    print("parseNotificationTap: $data");
-    Map<String, Object> result = {"information": "", "data": ""};
+    String payload = "";
     if (Platform.isIOS) {
-      result["information"] = selector(data, "aps.alert", "");
-      if (result["information"] == "") {
-        result["information"] = selector(data, "title", "");
-      }
-      result["data"] = selector(data, "message", "");
+      payload = selector(data, "message", "");
     } else if (Platform.isAndroid) {
       if (data.containsKey("message")) {
-        result["data"] = data["message"]!;
+        payload = data["message"]!.toString();
+      }
+      if (data.containsKey("payload")) {
+        payload = data["payload"]!.toString();
       }
     }
-    if (result["data"] != "") {
-      onMessage(result, PushType.onNotificationTap);
+    if (payload != "") {
+      onMessage(payload, PushType.onNotificationTap);
     }
   }
 
   void parseRemoteMessage(push.RemoteMessage message, PushType pushType) {
-    //Map<String, Object> result = {"information": "", "data": ""};
     if (message.notification != null && message.notification!.title != null && message.notification!.body != null) {
-      openPush(message.notification!.title!, message.notification!.body!);
+
+      openPush(message.notification!.title!, message.notification!.body!, message.data);
     }
-    // if (Platform.isIOS) {
-    //   result["information"] = selector(message.data, "aps.alert", "");
-    //   result["data"] = selector(message.data, "message", "");
-    // } else if (Platform.isAndroid) {
-    //   result["information"] = message.notification?.body ?? "";
-    //   result["data"] = message.data?["message"] ?? "";
-    // }
-    // if (result["data"] != "") {
-    //   onMessage(result, pushType);
-    // }
   }
 
   void getToken() {
     if (Platform.isIOS) {
       Push.instance.getNotificationSettings().then((settings) {
         if (settings.authorizationStatus == UNAuthorizationStatus.authorized) {
-          Push.instance.token.then((value) => onMessage({"token": value}, PushType.onToken));
+          Push.instance.token.then((value) => onMessage(value, PushType.onToken));
         } else {
-          onMessage({"token": null}, PushType.onToken);
+          onMessage(null, PushType.onToken);
         }
       });
     } else if (Platform.isAndroid) {
@@ -125,17 +106,21 @@ class PushNotification {
         if (!areNotificationsEnabled) {
           Push.instance.requestPermission().then((value) {
             if (value == true) {
-              Push.instance.token.then((value) => onMessage({"token": value}, PushType.onToken));
+              Push.instance.token.then((value) => onMessage(value, PushType.onToken));
             }
           });
         } else {
-          Push.instance.token.then((value) => onMessage({"token": value}, PushType.onToken));
+          Push.instance.token.then((value) => onMessage(value, PushType.onToken));
         }
       });
     }
   }
 
-  void openPush(String title, String body) async {
+  void openPush(String title, String body, Map? data) async {
+    String payload = "";
+    if (data != null && data.containsKey("message")) {
+      payload = data["message"]!.toString();
+    }
     final androidOptions = AndroidNotificationDetails(
       channel.id,
       channel.name,
@@ -155,7 +140,7 @@ class PushNotification {
       title,
       body,
       platformChannelSpecifics,
-      payload: 'Default_Sound',
+      payload: payload,
     );
   }
 
