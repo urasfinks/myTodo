@@ -16,7 +16,7 @@ Future<void> _firebaseMessagingBackgroundHandler(fcm.RemoteMessage message) asyn
   }
 }
 
-enum PushType { onToken, onNotificationTap, onMessage, onBackgroundMessage, onMessageOpenedApp }
+enum PushType { onToken, onNotificationTap, onMessageOpenedApp }
 
 class PushNotification {
   static final PushNotification _singleton = PushNotification._internal();
@@ -64,8 +64,8 @@ class PushNotification {
     });
     Push.instance.onNewToken.listen((token) => onMessage(token, PushType.onToken));
     Push.instance.onNotificationTap.listen((data) => parseNotificationTap(data));
-    Push.instance.onMessage.listen((message) => parseRemoteMessage(message, PushType.onMessage));
-    Push.instance.onBackgroundMessage.listen((message) => parseRemoteMessage(message, PushType.onBackgroundMessage));
+    Push.instance.onMessage.listen((message) => parseRemoteMessage(message));
+    Push.instance.onBackgroundMessage.listen((message) => parseRemoteMessage(message));
   }
 
   void parseNotificationTap(Map<String?, Object?> data) {
@@ -85,9 +85,8 @@ class PushNotification {
     }
   }
 
-  void parseRemoteMessage(push.RemoteMessage message, PushType pushType) {
+  void parseRemoteMessage(push.RemoteMessage message) {
     if (message.notification != null && message.notification!.title != null && message.notification!.body != null) {
-
       openPush(message.notification!.title!, message.notification!.body!, message.data);
     }
   }
