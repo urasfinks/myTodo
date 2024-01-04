@@ -12,7 +12,11 @@ Future<void> _firebaseMessagingBackgroundHandler(fcm.RemoteMessage message) asyn
   fcm.RemoteNotification? notification = message.notification;
   fcm.AndroidNotification? android = message.notification?.android;
   if (notification != null && android != null && notification.title != null && notification.body != null) {
-    PushNotification().openPush(notification.title!, notification.body!, message.data);
+    String payload = "";
+    if (message.data.containsKey("message")) {
+      payload = message.data["message"]!.toString();
+    }
+    PushNotification().openPush(notification.title!, notification.body!, payload);
   }
 }
 
@@ -70,15 +74,10 @@ class PushNotification {
 
   void parseNotificationTap(Map<String?, Object?> data) {
     String payload = "";
-    if (Platform.isIOS) {
-      payload = selector(data, "message", "");
-    } else if (Platform.isAndroid) {
-      if (data.containsKey("message")) {
-        payload = data["message"]!.toString();
-      }
-      if (data.containsKey("payload")) {
-        payload = data["payload"]!.toString();
-      }
+    if (data.containsKey("message")) {
+      payload = data["message"]!.toString();
+    } else if (data.containsKey("payload")) {
+      payload = data["payload"]!.toString();
     }
     if (payload != "") {
       onMessage(payload, PushType.onNotificationTap);
@@ -86,8 +85,24 @@ class PushNotification {
   }
 
   void parseRemoteMessage(push.RemoteMessage message) {
-    if (message.notification != null && message.notification!.title != null && message.notification!.body != null) {
-      openPush(message.notification!.title!, message.notification!.body!, message.data);
+    String title = "";
+    String body = "";
+    String payload = "";
+    if (Platform.isIOS) {
+      //message.data = {aps: {alert: You got the new message}, message: {"x1":1}}
+      body = selector(message.data, "aps.alert", "");
+      payload = selector(message.data, "message", "");
+    } else if (Platform.isAndroid) {
+      if (message.notification != null && message.notification!.title != null && message.notification!.body != null) {
+        if (message.data != null && message.data!.containsKey("message")) {
+          payload = message.data!["message"]!.toString();
+        }
+        title = message.notification!.title!;
+        body = message.notification!.body!;
+      }
+    }
+    if (body != "") {
+      openPush(title, body, payload);
     }
   }
 
@@ -115,11 +130,7 @@ class PushNotification {
     }
   }
 
-  void openPush(String title, String body, Map? data) async {
-    String payload = "";
-    if (data != null && data.containsKey("message")) {
-      payload = data["message"]!.toString();
-    }
+  void openPush(String title, String body, String payload) async {
     final androidOptions = AndroidNotificationDetails(
       channel.id,
       channel.name,
@@ -158,7 +169,7 @@ class PushNotification {
     return flutterLocalNotificationsPlugin;
   }
 
-  dynamic selector(Map<String?, dynamic>? data, String path, [dynamic defaultValue]) {
+  dynamic selector(Map? data, String path, [dynamic defaultValue]) {
     defaultValue ??= "[$path]";
     if (data == null) {
       return defaultValue;
