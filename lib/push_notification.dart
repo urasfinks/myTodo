@@ -69,7 +69,9 @@ class PushNotification {
     Push.instance.onNewToken.listen((token) => onMessage(token, PushType.onToken));
     Push.instance.onNotificationTap.listen((data) => parseNotificationTap(data));
     Push.instance.onMessage.listen((message) => parseRemoteMessage(message));
-    Push.instance.onBackgroundMessage.listen((message) => parseRemoteMessage(message));
+    //Android повторно открывает alert если считывать onBackgroundMessage
+    //Работает всё прекрасно и без чтения onBackgroundMessage
+    //Push.instance.onBackgroundMessage.listen((message) => parseRemoteMessage(message));
   }
 
   void parseNotificationTap(Map<String?, Object?> data) {
